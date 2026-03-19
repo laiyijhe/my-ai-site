@@ -1,39 +1,34 @@
 import { NextResponse } from 'next/server';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json();
 
-    // 1. 叫 Replicate 開始算圖
-    const startResponse = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        // 使用目前最穩定的修復模型
-        version: "da8ea2d0a61667629f0085033c0f3d3c69461cc43a0aa351bc819af142c299bb",
-        input: { image: imageUrl, upscale: 4 }
-      }),
+    // 1. 先把遠端圖片上傳到你的 Cloudinary 空間
+    const uploadRes = await cloudinary.uploader.upload(imageUrl, {
+      folder: 'upscale_app',
     });
 
-    let prediction = await startResponse.json();
+    // 2. 使用 Cloudinary 的 AI 放大功能 (e_gen_upscale:400 代表放大 4 倍)
+    // 這是最簡單、最穩定的免費 AI 方案
+    const upscaledUrl = cloudinary.url(uploadRes.public_id, {
+      transformation: [
+        { effect: "gen_upscale:400" },
+        { quality: "auto" }
+      ]
+    });
 
-    // 2. 因為 Replicate 需要時間，我們寫一個簡單的迴圈等它 (每隔 2 秒檢查一次)
-    const predictionId = prediction.id;
-    while (prediction.status !== "succeeded" && prediction.status !== "failed") {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const checkResponse = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
-        headers: { "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}` },
-      });
-      prediction = await checkResponse.json();
-    }
-
-    // 3. 算完了，把結果回傳
-    return NextResponse.json({ image: { url: prediction.output } });
+    return NextResponse.json({ image: { url: upscaledUrl } });
 
   } catch (error) {
-    return NextResponse.json({ error: "Replicate 運算逾時" }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "Cloudinary 處理失敗" }, { status: 500 });
   }
 }
