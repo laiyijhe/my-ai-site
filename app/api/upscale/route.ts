@@ -1,41 +1,46 @@
 import { NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
-
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
 
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json();
-    console.log("收到圖片網址:", imageUrl);
 
-    // 1. 嘗試上傳
-    const uploadRes = await cloudinary.uploader.upload(imageUrl, {
-      folder: 'upscale_app',
-    }).catch(err => {
-      console.error("Cloudinary 上傳失敗詳情:", err);
-      throw err;
+    // 1. 先呼叫 Replicate 的 SwinIR 模型 (一個快速且免費的 AI 模型)
+    const startResponse = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        // 使用 SwinIR 模型，這個模型比 ESRGAN 更快、排隊時間更短
+        version: "660d551d50d41d9963da1807e32a6fa2c3f84f183e2009a0a256d05f3246a489",
+        input: { image: imageUrl, upscale: 4 } // 放大 4 倍
+      }),
     });
 
-    console.log("上傳成功，ID 為:", uploadRes.public_id);
+    let prediction = await startResponse.json();
 
-    // 2. 生成放大網址 (先改用最穩定的傳統放大，排除 AI 權限問題)
-    const upscaledUrl = cloudinary.url(uploadRes.public_id, {
-      transformation: [
-        { width: 1200, crop: "limit" }, // 先嘗試單純放大
-        { quality: "auto" },
-        { fetch_format: "auto" }
-      ]
-    });
+    // 2. 因為 Replicate 是非同步的，我們寫一個簡單的迴圈在「原地等」 (每隔 2 秒檢查一次)
+    const predictionId = prediction.id;
+    while (prediction.status !== "succeeded" && prediction.status !== "failed") {
+      // 在終端機印出狀態 (除錯用)
+      console.log("正在排隊/處理中:", prediction.status); 
+      
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 等 2 秒
+      const checkResponse = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        headers: { "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}` },
+      });
+      prediction = await checkResponse.json();
+    }
 
-    return NextResponse.json({ image: { url: upscaledUrl } });
+    // 3. 算完了，把結果回傳
+    if (prediction.status === "succeeded") {
+      return NextResponse.json({ image: { url: prediction.output } });
+    } else {
+      throw new Error(`Replicate 運算失敗: ${prediction.error}`);
+    }
 
   } catch (error: any) {
-    console.error("API 發生錯誤:", error.message);
     return NextResponse.json({ error: error.message || "處理失敗" }, { status: 500 });
   }
 }
