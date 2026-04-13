@@ -8,8 +8,6 @@ on:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -18,20 +16,22 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-        cache: 'pip'
-        cache-dependency-path: 'backend/requirements.txt'
+        # 先不使用 cache，確保第一次安裝環境能成功
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
+        # 尋找所有的 requirements.txt 並安裝
+        find . -name "requirements.txt" -exec pip install -r {} +
         python -m playwright install --with-deps chromium
 
     - name: Run Crawler
-      working-directory: backend
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
+        # 自動尋找 crawler.py 並執行
+        CRAWLER_PATH=$(find . -name "crawler.py" | head -n 1)
+        cd $(dirname $CRAWLER_PATH)
         python crawler.py
