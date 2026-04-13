@@ -20,8 +20,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        # 這是黑魔法：自動尋找任何目錄下的 requirements.txt 並安裝
-        find . -name "requirements.txt" -exec pip install -r {} +
+        # 強制搜尋並安裝
+        REQ_FILE=$(find . -name "requirements.txt" | head -n 1)
+        pip install -r "$REQ_FILE"
         python -m playwright install --with-deps chromium
 
     - name: Run Crawler
@@ -30,9 +31,8 @@ jobs:
         SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
-        # 自動尋找 crawler.py，切換到該目錄並執行
         CRAWLER_FILE=$(find . -name "crawler.py" | head -n 1)
         CRAWLER_DIR=$(dirname "$CRAWLER_FILE")
-        echo "Found crawler at: $CRAWLER_FILE"
+        echo "Crawler found at: $CRAWLER_FILE"
         cd "$CRAWLER_DIR"
         python crawler.py
