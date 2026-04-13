@@ -1,25 +1,22 @@
-name: FORCE_RUN_CRAWLER
+name: DEBUG_FILE_CONTENT
 
 on:
   workflow_dispatch:
 
 jobs:
-  run_job:
+  debug:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
+      - name: Check File Locations
         run: |
-          python -m pip install --upgrade pip
-          pip install playwright supabase openai python-dotenv
-          python -m playwright install --with-deps chromium
+          echo "=== 目前專案中所有的 crawler.py 位置 ==="
+          find . -name "crawler.py"
+          
+          echo "=== 準備執行的那個檔案前 5 行內容 ==="
+          head -n 5 crawler.py
 
       - name: Run Python script
         env:
