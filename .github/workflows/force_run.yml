@@ -9,19 +9,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 強迫抓取所有歷史，防止抓到舊快取
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: 🔍 照妖鏡：檢查檔案是否存在與內容
+      - name: 🔍 最終照妖鏡
         run: |
-          echo "=== 1. 目前目錄下的所有檔案清單 ==="
+          echo "--- 檢查檔案是否存在 ---"
           ls -F
-          echo "=== 2. 強行印出 crawler.py 的前 5 行 ==="
-          cat crawler.py | head -n 5
-          echo "======================================"
+          echo "--- 印出 main_crawler.py 的前 5 行 ---"
+          cat main_crawler.py | head -n 5
 
       - name: Install dependencies
         run: |
@@ -34,4 +35,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python crawler.py
+        run: python main_crawler.py
