@@ -35,4 +35,5 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python main_crawler.py
+       - name: Run Crawler
+        run: python super_crawler.py  # 這裡一定要改成 super_crawler.py
