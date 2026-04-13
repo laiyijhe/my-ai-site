@@ -1,5 +1,4 @@
-name: DEBUG_FILE_CONTENT
-
+name: FORCE_RUN_CRAWLER
 on:
   workflow_dispatch:
 
